@@ -1,8 +1,10 @@
+
 library("rlist")
 library("ggplot2")
+library(plotCostEffectiveness)
+library(dplyr)
 
-setwd("/Users/ongseeusi/Project/bscproject")
-wd <- read.csv("mydata.csv") #sample data set generated with python
+wd <- read.csv(here::here("mydata.csv"))
 wdnooutput <- subset(wd, select = -output)
 paramcount <- ncol(wdnooutput) #number of parameters, not counting the output column
 
