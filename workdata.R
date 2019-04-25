@@ -1,8 +1,18 @@
-library("dplyr")
+library("rlist")
 library("ggplot2")
 
-setwd("/Users/ongseeusi/Project")
-wd <- read.csv("mydata.csv")
+setwd("/Users/ongseeusi/Project/bscproject")
+wd <- read.csv("mydata.csv") #sample data set generated with python
+wdnooutput <- subset(wd, select = -output)
+paramcount <- ncol(wdnooutput) #number of parameters, not counting the output column
+
+min_values <- list()
+max_values <- list()
+
+for (column in wdnooutput){
+  list.append(min_values, wd$output[which.min(column)])
+  list.append(max_values, wd$output[which.max(column)])
+}
 
 minpar1 = which.min(wd[,1])
 maxpar1 = which.max(wd[,1])
