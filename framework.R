@@ -1,4 +1,5 @@
 library(shiny)
+library(shinyWidgets)
 library(rlist)
 library(ggplot2)
 library(dplyr)
@@ -32,7 +33,7 @@ ui <- fluidPage(
       tags$hr(),
       
       # Input: Checkbox if file has header ----
-      checkboxInput("header", "Header", FALSE),
+      checkboxInput("header", "Header", TRUE),
       
       # Input: Select separator ----
       radioButtons("sep", "Separator",
@@ -46,7 +47,7 @@ ui <- fluidPage(
                    choices = c(None = "",
                                "Double Quote" = '"',
                                "Single Quote" = "'"),
-                   selected = '"'),
+                   selected = ""),
       
       # Horizontal line ----
       tags$hr(),
@@ -64,8 +65,17 @@ ui <- fluidPage(
       
       # Output: Tabset w/ plot, summary, and table ----
       tabsetPanel(type = "tabs",
-                  tabPanel("One-way", plotOutput("tornado")),
-                  tabPanel("Two-way", plotOutput("heatmap")),
+                  tabPanel("One-way",
+                           pickerInput(
+                             inputId = "outputPicker", 
+                             label = "Multiple outcome datasets", 
+                             choices = c("mortality", "QALYs", "list of health outcomes"), 
+                             multiple = FALSE,
+                             options = list(
+                               title = "Choose outcome to be analysed")
+                           ),
+                           plotOutput("plot")),
+                  tabPanel("Two-way", plotOutput("plot2")),
                   tabPanel("Summary", verbatimTextOutput("summary")),
                   tabPanel("Table", tableOutput("table"))
       )
@@ -108,12 +118,13 @@ server <- function(input, output) {
   # dependencies on the inputs and the data reactive expression are
   # both tracked, and all expressions are called in the sequence
   # implied by the dependency graph.
+  
   output$plot <- renderPlot({
-    hist(runif(input$n1), col = blues9, border = blues9, labels = TRUE, main = "A random histogram", xlab = "The x-axis", ylab = "The y axis")
+    plot(plot.default(thisdata()))
   })
     
   output$plot2 <- renderPlot({
-    plot(runif(input$n1), col = blues9, border = blues9, labels = TRUE, main = "A random scatterplot", xlab = "The x-axis", ylab = "The y axis")
+    plot(plot.default(thisdata()))
   })
   
   # Generate a summary of the data ----
@@ -123,7 +134,12 @@ server <- function(input, output) {
   
   # Generate an HTML table view of the data ----
   output$table <- renderTable({
-    thisdata()
+    if(input$disp == "head") {
+      return(head(thisdata()))
+    }
+    else {
+      return(thisdata())
+  }
   })
   
 }
