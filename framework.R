@@ -2,6 +2,7 @@ library(shiny)
 library(shinyWidgets)
 library(rlist)
 library(ggplot2)
+library(plotCostEffectiveness)
 library(dplyr)
 library(mc2d)
 
@@ -29,55 +30,71 @@ ui <- fluidPage(
                            "text/comma-separated-values,text/plain",
                            ".csv")),
       
-      # Horizontal line ----
-      tags$hr(),
-      
       # Input: Checkbox if file has header ----
       checkboxInput("header", "Header", TRUE),
       
       # Input: Select separator ----
-      radioButtons("sep", "Separator",
-                   choices = c(Comma = ",",
-                               Semicolon = ";",
-                               Tab = "\t"),
-                   selected = ","),
+      pickerInput(
+        inputId = "sep", 
+        label = "Separator", 
+        choices = c(Comma = ",",
+                    Semicolon = ";",
+                    Tab = "\t"), 
+        multiple = FALSE,
+        options = c(selected = ",")
+      ),
       
       # Input: Select quotes ----
-      radioButtons("quote", "Quote",
-                   choices = c(None = "",
-                               "Double Quote" = '"',
-                               "Single Quote" = "'"),
-                   selected = ""),
+      pickerInput(
+        inputId = "quote", 
+        label = "Quote", 
+        choices = c(None = "",
+                    "Double Quote" = '"',
+                    "Single Quote" = "'"), 
+        multiple = FALSE,
+        options = c(selected = "")
+      ),
       
       # Horizontal line ----
       tags$hr(),
       
       # Input: Select number of rows to display ----
-      radioButtons("disp", "Display",
-                   choices = c(Head = "head",
-                               All = "all"),
-                   selected = "head")
+      pickerInput(
+        inputId = "disp", 
+        label = "Display", 
+        choices = c(Head = "head",
+                    All = "all"), 
+        multiple = FALSE,
+        options = c(selected = "head")
+      ),
+      
+      # Input: Data filters ----
+      pickerInput(
+        inputId = "datfilt", 
+        label = "Display", 
+        choices = c(Head = "head",
+                    All = "all"), 
+        multiple = FALSE,
+        options = c(selected = "head")
+      )
     ),
-    
-    
     # Main panel for displaying outputs ----
     mainPanel(
       
       # Output: Tabset w/ plot, summary, and table ----
       tabsetPanel(type = "tabs",
+                  tabPanel("Data", tableOutput("data")),
                   tabPanel("One-way",
                            pickerInput(
                              inputId = "outputPicker", 
                              label = "Multiple outcome datasets", 
-                             choices = c("mortality", "QALYs", "list of health outcomes"), 
+                             choices = c("5 year survival", "QALYs", "Mortality", "list of health outcomes"), 
                              multiple = FALSE,
-                             options = list(
-                               title = "Choose outcome to be analysed")
+                             options = c(title = "Choose outcome to be analysed")
                            ),
                            plotOutput("plot")),
                   tabPanel("Two-way", plotOutput("plot2")),
-                  tabPanel("Summary", verbatimTextOutput("summary")),
-                  tabPanel("Table", tableOutput("table"))
+                  tabPanel("Summary", verbatimTextOutput("summary"))
       )
       
     )
@@ -133,7 +150,7 @@ server <- function(input, output) {
   })
   
   # Generate an HTML table view of the data ----
-  output$table <- renderTable({
+  output$data <- renderTable({
     if(input$disp == "head") {
       return(head(thisdata()))
     }
