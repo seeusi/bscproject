@@ -1,0 +1,22 @@
+Variables:
+File uploaded = “uploadedfile”
+Check box for header = “dataheader”
+Picker for data separator = "datasep"
+Picker for data quotations = "dataquote"
+Picker for data display = "datadisp"
+
+Tabs
+a. Data, outputid = "datatable"
+b. One-way, plotoutputid = "onewayplot"
+    Output picker, inputid = "selectoutput"
+c. Two-way, plotoutputid = "twowayplot"
+d. Summary, outputid = "datasummary"
+    Download button, outputid = "downloadplots"
+
+Server variables
+reactive = "reactivedata"
+
+Library for items
+1. Shiny
+2. Shiny widgets: pickerinput (selecting data separator)
+3. grDevices: download plots

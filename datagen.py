@@ -12,10 +12,10 @@ import csv
 
 eachline = []
 
-for num in range (500):
-    parameter1 = round(random.uniform(0,50), 1)
-    parameter2 = round(random.uniform(0,75), 1)
-    output = (parameter1 + parameter2)
+for num in range (50):
+    parameter1 = round(random.uniform(0,20), 1)
+    parameter2 = round(random.uniform(0,30), 1)
+    output = (parameter1 * parameter1) + (2 * parameter2)
     eachitem = [parameter1, parameter2, round(output, 1)]
     eachline.append(eachitem)
 
