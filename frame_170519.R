@@ -2,6 +2,11 @@ library(shiny)
 library(shinyWidgets)
 library(grDevices)
 library(gridExtra)
+library(datasets)
+library(reshape2)
+library(ggplot2)
+library(plotCostEffectiveness)
+library(dplyr)
 
 # Define the UI, visual design of the page
 ui <- fluidPage(
@@ -92,7 +97,21 @@ server <- function(input, output){
   # Reactive expression to generate the requested distribution ----
   # This is called whenever the inputs change. The output functions
   # defined below then use the value computed from this expression
-  
+  reactivedata <- reactive({
+    if (is.null(inFile$datapath)) {
+      dat <- read.csv("path/to/your.csv")
+      values$file_name = "your.csv"
+      values$file_type = "csv"
+      values$file_size = file.size("path/to/your.csv")
+      values$file_path = "path/to/your.csv"
+    } else {
+      dat <- read.csv(inFile$datapath)
+      values$file_name = inFile$name
+      values$file_size = inFile$size
+      values$file_type = inFile$type
+      values$file_path = inFile$datapath
+    }
+  })
   reactivedata <- reactive({
     
     # input$uploadedfile is NULL initially
@@ -100,7 +119,6 @@ server <- function(input, output){
     
     # when reading semicolon separated files,
     # having a comma separator causes `read.csv` to error
-    
     tryCatch(
       {
         df <- read.csv(input$uploadedfile$datapath,
@@ -114,26 +132,19 @@ server <- function(input, output){
       }
     )
   })
-  
   # Generate an HTML table view of the data ----
   output$datatable <- renderTable({
     if(input$datadisp == "head") {
-      return(head(reactivedata()))
+      return(head(reactivedata))
     }
     else {
-      return(reactivedata())
+      return(reactivedata)
     }
   })
   
-  # Generate plots of the data ----
-  # Also uses the inputs to build the plot label. Note that the
-  # dependencies on the inputs and the data reactive expression are
-  # both tracked, and all expressions are called in the sequence
-  # implied by the dependency graph.
-  
   # Generate a summary of the data ----
   output$datasummary <- renderPrint({
-    summary(reactivedata())
+    summary(reactivedata)
   })
   
   # Downloadable pdf of data plots and summary ----

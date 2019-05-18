@@ -12,14 +12,14 @@ import csv
 
 eachline = []
 
-for num in range (50):
-    parameter1 = round(random.uniform(0,20), 1)
-    parameter2 = round(random.uniform(0,30), 1)
+for num in range (500):
+    parameter1 = round(random.uniform(0,10), 3)
+    parameter2 = round(random.uniform(0,15), 3)
     output = (parameter1 * parameter1) + (2 * parameter2)
     eachitem = [parameter1, parameter2, round(output, 1)]
     eachline.append(eachitem)
 
-with open("mydata.csv", "w") as datafile:
+with open("mynewdata.csv", "w") as datafile:
     mywriter = csv.writer(datafile)
     mywriter.writerow(["parameter1", "parameter2", "output"])
     for line in eachline:
