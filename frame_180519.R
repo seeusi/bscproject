@@ -1,6 +1,5 @@
 library(shiny)
 library(shinyWidgets)
-library(datasets)
 library(reshape2)
 library(ggplot2)
 library(plotCostEffectiveness)
@@ -84,12 +83,24 @@ ui <- fluidPage(
                   tabPanel(title = "Data",
                            tableOutput("datatable")),
                   tabPanel(title = "One-way",
-                           # pickerInput(inputId = "selectoutput",
-                           #            choices = c(),
-                           #            multiple = FALSE,
-                           #            options = c(title = "Select outcome to be analysed")),
+                            pickerInput(inputId = "selectoutput1",
+                                       choices = c(),
+                                       multiple = FALSE,
+                                       options = c(title = "Select outcome to be analysed")),
                            plotOutput(outputId = "onewayplot")),
                   tabPanel(title = "Two-way",
+                           pickerInput(inputId = "selectparam1",
+                                       choices = c(),
+                                       multiple = FALSE,
+                                       options = c(title = "Select 1st parameter for analysis")),
+                           pickerInput(inputId = "selectparam2",
+                                       choices = c(),
+                                       multiple = FALSE,
+                                       options = c(title = "Select 2nd parameter for analysis")),
+                           pickerInput(inputId = "selectoutput2",
+                                       choices = c(),
+                                       multiple = FALSE,
+                                       options = c(title = "Select outcome to be analysed")),
                            plotOutput("twowayplot")),
                   tabPanel(title = "Summary",
                            verbatimTextOutput(outputId = "datasummary"),
@@ -101,6 +112,7 @@ ui <- fluidPage(
     )
   )
 )
+
 
 # Define the server code
 server <- function(input, output, session){
@@ -152,8 +164,8 @@ server <- function(input, output, session){
         stop(safeError(e))
       }
     ) 
-    # updatePickerInput(session, inputId = "selectoutput",
-    #                  choices = c(colnames(df)))
+     updatePickerInput(session, inputId = "selectoutput1",
+                      choices = c(colnames(df)))
     
     nooutput <- df %>% select(-starts_with("output"))
     
@@ -194,7 +206,21 @@ server <- function(input, output, session){
         stop(safeError(e))
       }
     )
-    
+    updatePickerInput(session, inputId = "selectparam1",
+                      choices = c(colnames(df)))
+    updatePickerInput(session, inputId = "selectparam2",
+                      choices = c(colnames(df)))
+    updatePickerInput(session, inputId = "selectoutput2",
+                      choices = c(colnames(df)))
+    ggplot(df, aes(parameter1, parameter2, z = output)) +
+      geom_tile(aes(fill = output)) +
+      # scale_fill_manual(values = setNames(pal, levels(plot_data$INMB_cut))) +
+      # scale_fill_gradientn(limits = c(-70, 35)) + #continuous colours
+      coord_equal() +
+      theme_bw() +
+      xlab("Start (%)") +
+      ylab("Complete (%)") +
+      theme(panel.border = element_blank())
   })
   output$datasummary <- renderPrint({
     
