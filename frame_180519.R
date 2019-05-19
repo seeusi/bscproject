@@ -1,3 +1,10 @@
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+
 library(shiny)
 library(shinyWidgets)
 library(reshape2)
@@ -117,10 +124,12 @@ ui <- fluidPage(
 # Define the server code
 server <- function(input, output, session){
   output$datatable <- renderTable({
-    # input$file1 will be NULL initially. After the user selects
+    
+    # input$uploadedfile will be NULL initially. After the user selects
     # and uploads a file, head of that data file by default,
     # or all rows if selected, will be shown.
     req(input$uploadedfile)
+    
     # when reading semicolon separated files,
     # having a comma separator causes `read.csv` to error
     tryCatch(
@@ -146,10 +155,12 @@ server <- function(input, output, session){
   })
   
   output$onewayplot <- renderPlot({
-    # input$file1 will be NULL initially. After the user selects
+    
+    # input$uploadedfile will be NULL initially. After the user selects
     # and uploads a file, head of that data file by default,
     # or all rows if selected, will be shown.
     req(input$uploadedfile)
+    
     # when reading semicolon separated files,
     # having a comma separator causes `read.csv` to error
     tryCatch(
@@ -188,10 +199,12 @@ server <- function(input, output, session){
   })
   
   output$twowayplot <- renderPlot({
-    # input$file1 will be NULL initially. After the user selects
+    
+    # input$uploadedfile will be NULL initially. After the user selects
     # and uploads a file, head of that data file by default,
     # or all rows if selected, will be shown.
     req(input$uploadedfile)
+    
     # when reading semicolon separated files,
     # having a comma separator causes `read.csv` to error
     tryCatch(
@@ -224,11 +237,11 @@ server <- function(input, output, session){
   })
   output$datasummary <- renderPrint({
     
-    # input$file1 will be NULL initially. After the user selects
+    # input$uploadedfile will be NULL initially. After the user selects
     # and uploads a file, head of that data file by default,
     # or all rows if selected, will be shown.
-    
     req(input$uploadedfile)
+    
     # when reading semicolon separated files,
     # having a comma separator causes `read.csv` to error
     tryCatch(
