@@ -13,6 +13,92 @@ library(plotCostEffectiveness)
 library(dplyr)
 library(grDevices)
 
+# Define the functions
+# Can shift this to an import so this file focuses on the app
+get_df_from_input <- function(input) {
+  
+  # input$uploadedfile will be NULL initially. After the user selects
+  # and uploads a file, head of that data file by default,
+  # or all rows if selected, will be shown.
+  req(input$uploadedfile)
+  
+  # when reading semicolon separated files,
+  # having a comma separator causes `read.csv` to error
+  tryCatch(
+    {
+      df <- read.csv(input$uploadedfile$datapath,
+                     header = input$dataheader,
+                     sep = input$datasep,
+                     quote = input$dataquote)
+    },
+    error = function(e) {
+      # return a safeError if a parsing error occurs
+      stop(safeError(e))
+    }
+  )
+  
+  return(df)
+
+}
+
+datatable <- function(df, input, output) {
+  renderTable({
+    if(input$datadisp == "head") {
+      return(head(df))
+    } else {
+      return(df)
+    }
+  })
+}
+
+datasummary <- function(df, input, output) {
+  renderPrint({
+    summary(df)
+  })
+}
+
+onewayplot <- function(df, input, output) {
+  renderPlot({
+    
+    nooutput <- df %>% select(-matches(input$selectoutput1))
+    
+    minwhere <- sapply(nooutput, which.min)
+    maxwhere <- sapply(nooutput, which.max)
+    
+    frameddata <- data.frame(names = colnames(nooutput),
+                             min = c(df$output[minwhere]),
+                             max = c(df$output[maxwhere]))
+    melteddata <- melt(frameddata, id.vars = "names",
+                       variable.name = "val",
+                       value.name = "output") %>%
+      arrange(names)
+    
+    class(melteddata) <- c("tornado", class(melteddata))
+    attr(melteddata, "output_name") <- "output"
+    
+    baseline_output <- median(df$output, na.rm = TRUE)
+    ggplot_tornado(melteddata, baseline_output)
+    
+  })
+}
+
+twowayplot <- function(df, input, output) {
+  renderPlot({
+    ggplot(df, aes_(x = input$selectparam1, y = input$selectparam2, z = input$selectoutput2)) +
+      geom_tile(aes(fill = input$selectoutput2)) +
+      # scale_fill_manual(values = setNames(pal, levels(plot_data$INMB_cut))) +
+      # scale_fill_gradientn(limits = c(-70, 35)) + #continuous colours
+      coord_equal() +
+      theme_bw() +
+      xlab("Start (%)") +
+      ylab("Complete (%)") +
+      theme(panel.border = element_blank())
+  })
+}
+
+# Define Variables
+df.cache <- NULL
+
 # Define the UI, visual design of the page
 ui <- fluidPage(
   
@@ -25,17 +111,6 @@ ui <- fluidPage(
     # Sidebar panel for inputs ----
     sidebarPanel(
 
-# --------------------------------- Debugging -------------------------------- #
-      
-      strong("Debug"),
-      
-      # selectoutput1 resets immediately after selection
-      textOutput("debug_selectoutput1"),
-      tableOutput("debug_nooutput"),
-      
-# ---------------------------------------------------------------------------- #
-      
-      
       # Input: Select a file ----
       fileInput("uploadedfile", "Choose CSV File",
                 multiple = FALSE,
@@ -135,149 +210,58 @@ ui <- fluidPage(
 
 # Define the server code
 server <- function(input, output, session){
-  output$datatable <- renderTable({
+  
+  # Handle new file
+  observeEvent({
     
-    # input$uploadedfile will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
+    # When there is a change to any of these inputs,
+    input$uploadedfile
+    input$dataheader
+    input$datasep
+    input$dataquote
+  
+  }, {
     
-    # when reading semicolon separated files,
-    # having a comma separator causes `read.csv` to error
-    tryCatch(
-      {
-        df <- read.csv(input$uploadedfile$datapath,
-                       header = input$dataheader,
-                       sep = input$datasep,
-                       quote = input$dataquote)
-      },
-      error = function(e) {
-        # return a safeError if a parsing error occurs
-        stop(safeError(e))
-      }
-    )
+    # 1. load a df from the file
+    df <- get_df_from_input(input)
+    assign("df.cache", df, envir = .GlobalEnv)
     
-    if(input$datadisp == "head") {
-      return(head(df))
-    }
-    else {
-      return(df)
-    }
+    # 2. update all pickers that depend on df
+    updatePickerInput(session, inputId = "selectoutput1", choices = c(colnames(df)))
+    updatePickerInput(session, inputId = "selectoutput2", choices = c(colnames(df)))
+    updatePickerInput(session, inputId = "selectparam1", choices = c(colnames(df)))
+    updatePickerInput(session, inputId = "selectparam2", choices = c(colnames(df)))
+    
+    # 3. update all outputs that depend on df
+    output$datatable <- datatable(df, input, output)
+    output$datasummary <- datasummary(df, input, output)
     
   })
   
-  output$onewayplot <- renderPlot({
+  # Handle one way plot
+  observeEvent({
     
-        
-    # input$uploadedfile will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
+    input$selectoutput1
+  
+  }, {
     
-    # when reading semicolon separated files,
-    # having a comma separator causes `read.csv` to error
-    tryCatch(
-      {
-        df <- read.csv(input$uploadedfile$datapath,
-                       header = input$dataheader,
-                       sep = input$datasep,
-                       quote = input$dataquote)
-      },
-      error = function(e) {
-        # return a safeError if a parsing error occurs
-        stop(safeError(e))
-      }
-    )
-    
-    updatePickerInput(session, inputId = "selectoutput1",
-                      choices = c(colnames(df)))
-
-    nooutput <- df %>% select(-matches(input$selectoutput1))
-
-# --------------------------------- Debugging -------------------------------- #
-
-    output$debug_selectoutput1 <- renderText(input$selectoutput1)
-    output$debug_nooutput <- renderTable(head(nooutput))
-
-# ---------------------------------------------------------------------------- #
-    
-    minwhere <- sapply(nooutput, which.min)
-    maxwhere <- sapply(nooutput, which.max)
-    
-    frameddata <- data.frame(names = colnames(nooutput),
-                             min = c(df$output[minwhere]),
-                             max = c(df$output[maxwhere]))
-    melteddata <- melt(frameddata, id.vars = "names",
-                       variable.name = "val",
-                       value.name = "output") %>%
-      arrange(names)
-    
-    class(melteddata) <- c("tornado", class(melteddata))
-    attr(melteddata, "output_name") <- "output"
-    
-    baseline_output <- median(df$output, na.rm = TRUE)
-    ggplot_tornado(melteddata, baseline_output)
+    df <- get("df.cache", envir = .GlobalEnv)
+    output$onewayplot <- onewayplot(df, input, output)
+  
   })
   
-  output$twowayplot <- renderPlot({
+  # Handle two way plot
+  observeEvent({
     
-    # input$uploadedfile will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
+    input$selectparam1
+    input$selectparam2
+    input$selectoutput2
     
-    # when reading semicolon separated files,
-    # having a comma separator causes `read.csv` to error
-    tryCatch(
-      {
-        df <- read.csv(input$uploadedfile$datapath,
-                       header = input$dataheader,
-                       sep = input$datasep,
-                       quote = input$dataquote)
-      },
-      error = function(e) {
-        # return a safeError if a parsing error occurs
-        stop(safeError(e))
-      }
-    )
-    updatePickerInput(session, inputId = "selectparam1",
-                      choices = c(colnames(df)))
-    updatePickerInput(session, inputId = "selectparam2",
-                      choices = c(colnames(df)))
-    updatePickerInput(session, inputId = "selectoutput2",
-                      choices = c(colnames(df)))
-    ggplot(df, aes(parameter1, parameter2, z = output)) +
-      geom_tile(aes(fill = output)) +
-      # scale_fill_manual(values = setNames(pal, levels(plot_data$INMB_cut))) +
-      # scale_fill_gradientn(limits = c(-70, 35)) + #continuous colours
-      coord_equal() +
-      theme_bw() +
-      xlab("Start (%)") +
-      ylab("Complete (%)") +
-      theme(panel.border = element_blank())
-  })
-  output$datasummary <- renderPrint({
+  }, {
     
-    # input$uploadedfile will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
+    df <- get("df.cache", envir = .GlobalEnv)
+    output$twowayplot <- twowayplot(df, input, output)
     
-    # when reading semicolon separated files,
-    # having a comma separator causes `read.csv` to error
-    tryCatch(
-      {
-        df <- read.csv(input$uploadedfile$datapath,
-                       header = input$dataheader,
-                       sep = input$datasep,
-                       quote = input$dataquote)
-      },
-      error = function(e) {
-        # return a safeError if a parsing error occurs
-        stop(safeError(e))
-      }
-    ) 
-    summary(df)
   })
 }
 
