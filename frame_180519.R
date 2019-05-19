@@ -24,6 +24,17 @@ ui <- fluidPage(
     
     # Sidebar panel for inputs ----
     sidebarPanel(
+
+# --------------------------------- Debugging -------------------------------- #
+      
+      strong("Debug"),
+      
+      # selectoutput1 resets immediately after selection
+      textOutput("debug_selectoutput1"),
+      tableOutput("debug_nooutput"),
+      
+# ---------------------------------------------------------------------------- #
+      
       
       # Input: Select a file ----
       fileInput("uploadedfile", "Choose CSV File",
@@ -80,6 +91,7 @@ ui <- fluidPage(
       # Submit button causes all the inputs on the page to not
       # send updates to the server until the button is pressed
       # submitButton("Submit")
+      
     ),
     
     # Main panel for displaying outputs ----
@@ -156,6 +168,7 @@ server <- function(input, output, session){
   
   output$onewayplot <- renderPlot({
     
+        
     # input$uploadedfile will be NULL initially. After the user selects
     # and uploads a file, head of that data file by default,
     # or all rows if selected, will be shown.
@@ -174,11 +187,19 @@ server <- function(input, output, session){
         # return a safeError if a parsing error occurs
         stop(safeError(e))
       }
-    ) 
-     updatePickerInput(session, inputId = "selectoutput1",
-                      choices = c(colnames(df)))
+    )
     
-    nooutput <- df %>% select(-starts_with("output"))
+    updatePickerInput(session, inputId = "selectoutput1",
+                      choices = c(colnames(df)))
+
+    nooutput <- df %>% select(-matches(input$selectoutput1))
+
+# --------------------------------- Debugging -------------------------------- #
+
+    output$debug_selectoutput1 <- renderText(input$selectoutput1)
+    output$debug_nooutput <- renderTable(head(nooutput))
+
+# ---------------------------------------------------------------------------- #
     
     minwhere <- sapply(nooutput, which.min)
     maxwhere <- sapply(nooutput, which.max)
