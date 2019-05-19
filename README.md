@@ -1,7 +1,9 @@
 # bscproject (debugging)
 
-- Added a debugging section in sidebar to quickly look at variables and stuff.
-All debugging stuff is marked out quite clearly for deletion later on.
+- Seperated event handling from rendering for code reuse modularity.
+The server function now handles what should happen when a file is uploaded, an 
+option is picked, etc. How it's done is moved to function declared at the 
+beggining of the script.
 
-- Edited `nooutput` to ignore the selected column in `selectoutput1`.
-Dplyr's select helper functions and regular expressions are useful for stuff like this!
+- Removed weird picker behaviour (there were picker resets in the previous 
+event handling)
