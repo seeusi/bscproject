@@ -12,13 +12,14 @@ plotdata <- mydata %>% select(matches("parameter1"),
 names(plotdata)[1] <- "p1"
 names(plotdata)[2] <- "p2"
 names(plotdata)[3] <- "op"
-
+mid <- mean(plotdata$op)
 
 inmb_levelplot <-
-  ggplot(plotdata, aes(p1, p2, z = op)) +
-  geom_raster(aes(fill = op)) +
+  ggplot(plotdata, aes(p1, p2), na.rm = TRUE) +
+  geom_point(aes(colour = op), na.rm = TRUE) +
   # scale_fill_manual(values = setNames(pal, levels(plot_data$INMB_cut))) +
-  # scale_fill_gradientn(limits = c(-70, 35)) + #continuous colours
+  scale_colour_gradient2(low = "red", mid = "white",
+                         high = "blue", midpoint = mid) +
   coord_equal() +
   theme_bw() +
   ggtitle("two") +
