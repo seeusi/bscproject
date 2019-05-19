@@ -25,7 +25,7 @@ ui <- fluidPage(
     # Sidebar panel for inputs ----
     sidebarPanel(
 
-# --------------------------------- Debugging -------------------------------- #
+# ---------------------- Debugging ---------------------- #
       
       strong("Debug"),
       
@@ -33,7 +33,7 @@ ui <- fluidPage(
       textOutput("debug_selectoutput1"),
       tableOutput("debug_nooutput"),
       
-# ---------------------------------------------------------------------------- #
+# ------------------------------------------------------- #
       
       
       # Input: Select a file ----
@@ -194,12 +194,12 @@ server <- function(input, output, session){
 
     nooutput <- df %>% select(-matches(input$selectoutput1))
 
-# --------------------------------- Debugging -------------------------------- #
+# ---------------------- Debugging ---------------------- #
 
     output$debug_selectoutput1 <- renderText(input$selectoutput1)
     output$debug_nooutput <- renderTable(head(nooutput))
 
-# ---------------------------------------------------------------------------- #
+# ------------------------------------------------------- #
     
     minwhere <- sapply(nooutput, which.min)
     maxwhere <- sapply(nooutput, which.max)
