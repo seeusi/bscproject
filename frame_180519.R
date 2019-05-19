@@ -24,17 +24,6 @@ ui <- fluidPage(
     
     # Sidebar panel for inputs ----
     sidebarPanel(
-
-# ---------------------- Debugging ---------------------- #
-      
-      strong("Debug"),
-      
-      # selectoutput1 resets immediately after selection
-      textOutput("debug_selectoutput1"),
-      tableOutput("debug_nooutput"),
-      
-# ------------------------------------------------------- #
-      
       
       # Input: Select a file ----
       fileInput("uploadedfile", "Choose CSV File",
@@ -193,13 +182,6 @@ server <- function(input, output, session){
                       choices = c(colnames(df)))
 
     nooutput <- df %>% select(-matches(input$selectoutput1))
-
-# ---------------------- Debugging ---------------------- #
-
-    output$debug_selectoutput1 <- renderText(input$selectoutput1)
-    output$debug_nooutput <- renderTable(head(nooutput))
-
-# ------------------------------------------------------- #
     
     minwhere <- sapply(nooutput, which.min)
     maxwhere <- sapply(nooutput, which.max)
