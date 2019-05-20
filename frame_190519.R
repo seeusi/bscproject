@@ -1,15 +1,83 @@
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
+#' This is a Shiny web application. You can run the application by clicking
+#' the 'Run App' button above.
+#'
+#' Find out more about building applications with Shiny here:
+#'
+#'    http://shiny.rstudio.com/
 
+# Loading and attaching add-on packages which will be used in the Shiny App
 library(shiny)
 library(reshape2)
+library(plyr)
+library(dplyr)
 library(ggplot2)
 library(plotCostEffectiveness)
-library(dplyr)
+library(grDevices)
+library(gridExtra)
+
+# Some functions to display messages in \code{shiny} reports
+
+#' Table message for exception
+#' Typically call \code{return(tab_exception(...))} where you would have called \code{stop(...)}
+#' @param ... text to display, concatenated with sep
+#' @examples
+#' tab_exception("no data for current filter selection")
+#' tab_exception("This doesn't work!")
+tabException <-function(
+    ...){
+  
+  # This converts plain text into "character" class
+  txt = paste(...)
+  
+  # Text input is converted into a data frame with column head, "ISSUE"
+  df = data.frame("ISSUE" = txt)
+  
+  # Text input returned as a data frame, which can be displayed by renderTable
+  return(df)
+  invisible(NULL)
+}
+
+#' Plot message for exception
+#' Typically call \code{return(plot_exception(...))} where you would have called \code{stop(...)}
+#' @param ... text to display, concatenated with sep
+#' @param sep separator used for concatenation
+#' @param type function to use to print in console
+#' @param color text color, by default red for message and warning else black
+#' @param console if TRUE print in console, if FALSE just plot
+#' @param size text size
+#' @examples
+#' plot_exception("no data for current filter selection")
+#' plot_exception("NO","WAY","!!!",color="blue",size=12,console=FALSE)
+plotException <-function(
+  ...,
+  sep=" ", 
+  type=c("message","warning","cat","print"),
+  color="auto",
+  console=TRUE,
+  size = 6){      
+  type=match.arg(type)
+  
+  # Plain text converted into character class
+  txt = paste(...,collapse=sep)
+  
+  # Controls and conditions to pass into the console
+  if(console){
+    if(type == "message") message(txt)
+    if(type == "warning") warning(txt)
+    if(type == "cat") cat(txt)
+    if(type == "print") print(txt)
+  }
+  
+  # Default colour
+  if(color =="auto") color <- if(type == "cat") "black" else "red"
+  if(txt == "warning") txt <- paste("warning:",txt)
+  
+  # Text input returned as a plot, which can be displayed by renderPlot
+  print(ggplot2::ggplot() +
+          ggplot2::geom_text(ggplot2::aes(x=0,y=0,label=txt),color=color,size=size) + 
+          ggplot2::theme_void())
+  invisible(NULL)
+}
 
 # Define the UI, visual design of the page
 ui <- fluidPage(
@@ -127,12 +195,23 @@ ui <- fluidPage(
 
 # Define the server code
 server <- function(input, output, session){
+  
+  #' Reactive expression to generate the requested outputs ----
+  #' This is called whenever the inputs change. The output functions
+  #' defined below then use the value computed from this expression.
+  #' This has been set as NULL initially and will take on the data
+  #' that the user has uploaded.
   uploaded <- reactiveValues(data = NULL)
   
+  #' This responds to "event-like" reactive inputs
+  #' input$uploadedfile is NULL initially
   observeEvent(input$uploadedfile, {
     if (is.null(input$uploadedfile))
       return(NULL)
     
+    #' When reading semicolon separated files,
+    #' having a comma separator causes `read.csv` to error
+    #' This uses the user's selection of head, separator and quotations.
     tryCatch(
       {
         df <- read.csv(input$uploadedfile$datapath,
@@ -141,33 +220,53 @@ server <- function(input, output, session){
                        quote = input$dataquote)
       },
       error = function(e) {
-        # return a safeError if a parsing error occurs
+        #' Return a safeError if a parsing error occurs
+        #' This causes the app to close if file uploaded cannot be parsed
         stop(safeError(e))
       }
     )
     
+    #' Parameter and output choices will be updated according to the column
+    #' headers of the data file that has been uploaded by the user.
+    #' User can then select which columns to be analysed for one-way
+    #' analysis output and two-way analysis parameters and output
     updateSelectInput(session, inputId = "selectoutput1",
                       choices = c(colnames(df)),
                       selected = paste(input$selectoutput1))
     updateSelectInput(session, inputId = "selectparam1",
                       choices = c(colnames(df)),
-                      selected = paste(input$selectoutput1))
+                      selected = paste(input$selectparam1))
     updateSelectInput(session, inputId = "selectparam2",
                       choices = c(colnames(df)),
-                      selected = paste(input$selectoutput1))
+                      selected = paste(input$selectparam2))
     updateSelectInput(session, inputId = "selectoutput2",
                       choices = c(colnames(df)),
-                      selected = paste(input$selectoutput1))
+                      selected = paste(input$selectoutput2))
     
+    #' Assign the extracted data from the user uploaded file to reactive
+    #' value that had been set as NULL above
     uploaded$data <- df
   })
-  
+
+  #' Generate an HTML table view of the data
+  #' This allows the user to view and check data that has been uploaded
+  #' before the analysis plots are created ----
   output$datatable <- renderTable({
-    if (is.null(uploaded$data)) 
-      return(NULL)
     
+    # Handles an error if user has not uploaded any data
+    if (is.null(uploaded$data))
+      return(tabException("You have not uploaded any data!"))
+    
+    # Assigns uploaded data as a reactive value to a variable
     df <- uploaded$data
     
+    #' Does not allow the user the use the analysis tool if data has less
+    #' than 2 columns. For at least one-way analysis, 2 columns of data
+    #' is necessary. Error message is raised.
+    if(isTRUE(ncol(df) < 2 ))
+      return(tabException("Your data must have at least 2 columns."))
+    
+    # Checks user input for table of data to be displayed
     if (input$datadisp == "head") {
       return(head(df))
     }
@@ -176,72 +275,126 @@ server <- function(input, output, session){
     }
   })
   
+  #' Generate plots of the data ----
+  #' Also uses the inputs to build the plot label. Note that the
+  #' dependencies on the inputs and the data reactive expression are
+  #' both tracked, and all expressions are called in the sequence
+  #' implied by the dependency graph.
+  #' 
+  #' Generate one-way uncertainty analysis plot of the data ----
   output$onewayplot <- renderPlot({
-    if (is.null(uploaded$data)) 
-      return(NULL)
+    
+    #' Handles error if user has not uploaded any data and ignores error
+    #' message from the data table tab
+    if (is.null(uploaded$data))
+      return(plotException("You have not uploaded any data!"))
     
     df <- uploaded$data
     
+    # Handles error if user has not chosen an output to be analysed
     if (input$selectoutput1 == "")
-      return(NULL)
+      return(plotException("You have not chosen an output for analysis"))
     
+    #' Retrieves user input for output to be analysed, as character class,
+    #' and assigns that to a variable
     output1 <- as.character(input$selectoutput1)
     
-    nooutput <- df %>% select(-matches(output1))
-    onlyoutput <- df %>% select(matches(output1))
+    # Separate output and non-output data into 2 data frames
+    noOutput <- df %>% select(-matches(output1))
+    onlyOutput <- df %>% select(matches(output1))
     
-    names(onlyoutput)[1] <- "output"
+    # Rename the column of the output data to be easily retrieved
+    names(onlyOutput)[1] <- "output"
     
-    minwhere <- sapply(nooutput, which.min)
-    maxwhere <- sapply(nooutput, which.max)
+    #' Identify the index of the minimum and maximum values of all non-
+    #' output parameters
+    minWhere <- sapply(noOutput, which.min)
+    maxWhere <- sapply(noOutput, which.max)
     
-    frameddata <- data.frame(names = colnames(nooutput),
-                             min = c(onlyoutput$output[minwhere]),
-                             max = c(onlyoutput$output[maxwhere]))
-    melteddata <- melt(frameddata, id.vars = "names",
+    #' New data frame that with names of non-output parameters and their
+    #' minimum and maximum output values using the indices retrieved on
+    #' the data frame with only output values
+    framedData <- data.frame(names = colnames(noOutput),
+                             min = c(onlyOutput$output[minWhere]),
+                             max = c(onlyOutput$output[maxWhere]))
+    
+    #' Data frame is melted into a vertical form that is more friendly to
+    #' ggplot tornado function, to plot the uncertainty analysis.
+    #' Data frame is then, sorted by non-output parameters, "names".
+    meltedData <- melt(framedData, id.vars = "names",
                        variable.name = "val",
                        value.name = "output") %>%
       arrange(names)
     
-    class(melteddata) <- c("tornado", class(melteddata))
-    attr(melteddata, "output_name") <- "output"
+    #' Class data as "tornado" and set specific attributes that
+    #' plot function will take.
+    class(meltedData) <- c("tornado", class(meltedData))
+    attr(meltedData, "output_name") <- "output"
     
-    baseline_output <- median(onlyoutput$output, na.rm = TRUE)
-    ggplot_tornado(melteddata, baseline_output)
+    #' Set baseline value of the output variable, median, and plot
+    #' tornado using ggplot_tornado, from plotCostEffectiveness package
+    baseline_output <- median(onlyOutput$output, na.rm = TRUE)
+    ggplot_tornado(meltedData, baseline_output)
   })
   
+  # Generate two-way uncertainty analysis plot of the data ----
   output$twowayplot <- renderPlot({
+    
+    #' Handles error if user has not uploaded any data and ignores error
+    #' message from the data table and one-way tab
     if (is.null(uploaded$data)) 
-      return(NULL)
+      return(plotException("You have not uploaded any data!"))
     
     df <- uploaded$data
     
+    #' Handles error if user has not selected 2 parameters and an output
+    #' for 2-way uncertainty analysis
     if ((input$selectparam1 == "") |
         (input$selectparam2 == "") |
-        (input$selectoutput2 == "") |
-        (input$selectparam1 == input$selectparam2) |
+        (input$selectoutput2 == ""))
+      return(plotException("You have to choose both parameters and the
+                            the output for analysis."))
+    
+    #' Handles error if user has not selected different column headers
+    #' for the 2 parameters and the output. All 3 selections must be
+    #' different columns.
+    #' Cannot have 2-way analysis if both parameters are the same.
+    #' Cannot analyse a data set as both a parameter and an output.
+    if ((input$selectparam1 == input$selectparam2) |
         (input$selectparam1 == input$selectoutput2) |
         (input$selectparam2 == input$selectoutput2))
-      return(NULL)
+      return(plotException("Cannot select same column more than once."))
     
+    # Retrieve user inputs and assign to variables as characters.
     param1 <- as.character(input$selectparam1)
     param2 <- as.character(input$selectparam2)
     output2 <- as.character(input$selectoutput2)
     
-    plotdata <- df %>% select(matches(param1),
+    # Select data to be analysed as new data frame
+    plotData <- df %>% select(matches(param1),
                               matches(param2),
                               matches(output2))
     
-    names(plotdata)[1] <- "parameter1"
-    names(plotdata)[2] <- "parameter2"
-    names(plotdata)[3] <- "output"
-    midpointvalue <- mean(plotdata$output)
+    # Rename the columns of analysis data to be easily retrieved
+    names(plotData)[1] <- "parameter1"
+    names(plotData)[2] <- "parameter2"
+    names(plotData)[3] <- "output"
     
+    #' Identify mid-point value of output data, median
+    #' This will be used as the mid-point value in the plot
+    midPointValue <- median(plotData$output, na.rm = TRUE)
+    
+    #' Use ggplot scatter plot and colour fill layering for
+    #' 3 variable contour plot for 2-way analysis. Parameters selected
+    #' will be the axes, output to be analysed as the colour fill.
+    #' na.rm = TRUE included to handle any NULL values in the data.
+    #' Plot has title and axes labelled according to user inputs of
+    #' data selected as parameters and output in analysis.
     ggplot(plotdata, aes(parameter1, parameter2), na.rm = TRUE) +
       geom_point(aes(colour = output), na.rm = TRUE) +
       # continuous colours for the gradient
       scale_colour_gradient2(low = "blue", mid = "white",
-                             high = "red", midpoint = midpointvalue) +
+                             high = "red", midpoint = midPointValue) +
       coord_equal() +
       theme_bw() +
       ggtitle("Two-way uncertainty analysis of", input$selectoutput2) +
@@ -250,15 +403,28 @@ server <- function(input, output, session){
       theme(panel.border = element_blank())
   })
   
+  # Generate a summary of the data ----
   output$datasummary <- renderPrint({
+    
+    #' Handles error if user has not uploaded any data and ignores error
+    #' message from the previous three tabs
     if (is.null(uploaded$data)) 
-      return(NULL)
+      return("You have not uploaded any data!")
     
     df <- uploaded$data
     
+    # Display summary of data user has uploaded
     summary(df)
   })
 }
 
 # Create Shiny app ----
 shinyApp(ui, server)
+
+#' Can load and attach {shiny} package on the console or command line
+#' \code{library(shiny)}
+#' and use \code{runApp} with varying arguments to run the application.
+#' This
+#' \code{runApp(appDir = getwd(), display.mode = "showcase")}
+#' allows the viewer to view the code and line being executed next to the
+#' shiny app user interface, while the app runs and processes user inputs.

@@ -12,6 +12,7 @@ library(ggplot2)
 library(plotCostEffectiveness)
 library(dplyr)
 library(grDevices)
+library(gridExtra)
 
 # Define the UI, visual design of the page
 ui <- fluidPage(
@@ -242,8 +243,6 @@ server <- function(input, output, session){
       # Open the device
       pdf(file)
       # Content to be included on the file
-      df <- uploaded$data
-      head(df)
       summary(df)
       # Close the device
       dev.off()
