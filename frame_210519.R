@@ -73,10 +73,9 @@ plotException <-function(
   if(txt == "warning") txt <- paste("warning:",txt)
   
   # Text input returned as a plot, which can be displayed by renderPlot
-  print(ggplot2::ggplot() +
-          ggplot2::geom_text(ggplot2::aes(x=0,y=0,label=txt),color=color,size=size) + 
-          ggplot2::theme_void())
-  invisible(NULL)
+  print(ggplot() +
+          geom_text(ggplot2::aes(x=0,y=0,label=txt),color=color,size=size) +
+          theme_void())
 }
 
 # Define the UI, visual design of the page
