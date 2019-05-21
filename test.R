@@ -1,11 +1,56 @@
 library(shiny)
-library(shinyWidgets)
-library(datasets)
 library(reshape2)
+library(plyr)
+library(dplyr)
 library(ggplot2)
 library(plotCostEffectiveness)
-library(dplyr)
 library(grDevices)
+library(gridExtra)
+
+tabException <-function(
+  ...){
+  
+  # This converts plain text into "character" class
+  txt = paste(...)
+  
+  # Text input is converted into a data frame with column head, "ISSUE"
+  df = data.frame("ISSUE" = txt)
+  
+  # Text input returned as a data frame, which can be displayed by renderTable
+  return(df)
+  invisible(NULL)
+}
+
+plotException <-function(
+  ...,
+  sep=" ", 
+  type=c("message","warning","cat","print"),
+  color="auto",
+  console=FALSE,
+  size = 6){      
+  type=match.arg(type)
+  
+  # Plain text converted into character class
+  txt = paste(...,collapse=sep)
+  
+  # Controls and conditions to pass into the console
+  if(console){
+    if(type == "message") message(txt)
+    if(type == "warning") warning(txt)
+    if(type == "cat") cat(txt)
+    if(type == "print") print(txt)
+  }
+  
+  # Default colour
+  if(color =="auto") color <- if(type == "cat") "black" else "red"
+  if(txt == "warning") txt <- paste("warning:",txt)
+  
+  # Text input returned as a plot, which can be displayed by renderPlot
+  print(ggplot2::ggplot() +
+          ggplot2::geom_text(ggplot2::aes(x=0,y=0,label=txt),color=color,size=size) + 
+          ggplot2::theme_void())
+  invisible(NULL)
+}
 
 # Define the UI, visual design of the page
 ui <- fluidPage(
@@ -30,53 +75,38 @@ ui <- fluidPage(
       checkboxInput("dataheader", "Header", TRUE),
       
       # Input: Select separator ----
-      pickerInput(inputId = "datasep", 
+      selectInput(inputId = "datasep", 
                   label = "Separator", 
                   choices = c(Comma = ",",
                               Semicolon = ";",
                               Tab = "\t"), 
-                  multiple = FALSE,
-                  options = c(selected = ",")),
+                  selected = ",",
+                  multiple = FALSE),
       
       # Input: Select quotes ----
-      pickerInput(inputId = "dataquote", 
+      selectInput(inputId = "dataquote", 
                   label = "Quote", 
                   choices = c(None = "",
                               "Double Quote" = '"',
-                              "Single Quote" = "'"), 
-                  multiple = FALSE,
-                  options = c(selected = "")),
+                              "Single Quote" = "'"),
+                  selected = "",
+                  multiple = FALSE),
       
       # Horizontal line ----
       tags$hr(),
       
       # Input: Select how data is displayed in data tab ----
-      pickerInput(inputId = "datadisp", 
+      selectInput(inputId = "datadisp", 
                   label = "Display", 
                   choices = c(Head = "head",
-                              All = "all"), 
-                  multiple = FALSE,
-                  options = c(selected = "head")),
-      
-      # Horizontal line ----
-      tags$hr(),
-      
-      # Input: Sliders for filtering data ----
-      # Drop down box with names of the different column headers
-      # Slider adjusts to value = median, min = min, max = max
-      pickerInput(inputId = "columnhead",
-                label = "Filter Column by Header",
-                choices = c(Column1 = "col1",
-                            Column2 = "col2",
-                            Column3 = "col3"),
-                multiple = FALSE),
-      sliderInput(inputId = "columnslide",
-                  label = "Filter Column Value",
-                  min = 0, max = 100, value = c(45, 55))
+                              All = "all"),
+                  selected = "head",
+                  multiple = FALSE),
       
       # Submit button causes all the inputs on the page to not
       # send updates to the server until the button is pressed
-      # submitButton("Submit")
+      submitButton("Submit")
+      
     ),
     
     # Main panel for displaying outputs ----
@@ -84,37 +114,88 @@ ui <- fluidPage(
       
       # Output: Tabset with data display, plots and data summary ----
       tabsetPanel(type = "tabs",
+                  
+                  # This tab will display the uploaded data as a table
                   tabPanel(title = "Data",
-                           tableOutput("datatable")),
+                           tableOutput("datatable"),
+                           
+                           # Button to download head of data table used as PDF
+                           downloadButton(outputId = "downloadDataTable",
+                                          label = "Download as PDF")),
+                  
+                  # This tab will display one-way uncertainty anaylysis
+                  # as a plot, depending on user input of the output
                   tabPanel(title = "One-way",
-                           pickerInput(inputId = "selectoutput",
+                           
+                           # Input: Select output for analysis ----
+                           selectInput(inputId = "selectoutput1",
+                                       label = "Select outcome to be analysed",
                                        choices = c(),
-                                       multiple = FALSE,
-                                       options = c(title = "Select outcome to be analysed")
-                           ),
-                           plotOutput(outputId = "onewayplot")),
+                                       selected = NULL,
+                                       multiple = FALSE),
+                           plotOutput(outputId = "onewayplot"),
+                           
+                           # Button to download plot produced as PDF
+                           downloadButton(outputId = "downloadTornado",
+                                          label = "Download as PDF")),
+                  
+                  # This tab will display two-way uncertainty anaylysis
+                  # as a plot, depending on user input of parameters and output
                   tabPanel(title = "Two-way",
-                           plotOutput("twowayplot")),
+                           
+                           # Input: Select first parameter for analysis ----
+                           selectInput(inputId = "selectparam1",
+                                       label = "Select first parameter",
+                                       choices = c(),
+                                       selected = NULL,
+                                       multiple = FALSE),
+                           
+                           # Input: Select second parameter for analysis ----
+                           selectInput(inputId = "selectparam2",
+                                       label = "Select second parameter",
+                                       choices = c(),
+                                       selected = NULL,
+                                       multiple = FALSE),
+                           
+                           # Input: Select output for analysis ----
+                           selectInput(inputId = "selectoutput2",
+                                       label = "Select output to be analysed",
+                                       choices = c(),
+                                       selected = NULL,
+                                       multiple = FALSE),
+                           
+                           plotOutput("twowayplot"),
+                           
+                           # Button to download plot produced as PDF
+                           downloadButton(outputId = "downloadContour",
+                                          label = "Download as PDF")),
+                  
+                  # This tab will display a summary of the data
                   tabPanel(title = "Summary",
                            verbatimTextOutput(outputId = "datasummary"),
                            
-                           # Button to download all data produced
-                           downloadButton(outputId = "downloadplots",
+                           # Button to download summary of the data as PDF
+                           downloadButton(outputId = "downloadSummary",
                                           label = "Download as PDF"))
       )
     )
   )
 )
 
-# Define server logic to read selected file ----
-server <- function(input, output, session) {
-  inputdata <- reactive({
-    # input$file1 will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
-    # when reading semicolon separated files,
-    # having a comma separator causes `read.csv` to error
+
+# Define the server code
+server <- function(input, output, session){
+  reactiveItem <- reactiveValues(
+    data = NULL,
+    displayTable = NULL,
+    displayTornado = NULL,
+    displayContour = NULL,
+    displaySummary = NULL)
+  
+  observeEvent(input$uploadedfile, {
+    if (is.null(input$uploadedfile)){
+      return(NULL)
+      }
     tryCatch(
       {
         df <- read.csv(input$uploadedfile$datapath,
@@ -123,115 +204,35 @@ server <- function(input, output, session) {
                        quote = input$dataquote)
       },
       error = function(e) {
-        # return a safeError if a parsing error occurs
         stop(safeError(e))
       }
     )
+    updateSelectInput(session, inputId = "selectoutput1",
+                      choices = c(colnames(df)),
+                      selected = paste(input$selectoutput1))
+    updateSelectInput(session, inputId = "selectparam1",
+                      choices = c(colnames(df)),
+                      selected = paste(input$selectparam1))
+    updateSelectInput(session, inputId = "selectparam2",
+                      choices = c(colnames(df)),
+                      selected = paste(input$selectparam2))
+    updateSelectInput(session, inputId = "selectoutput2",
+                      choices = c(colnames(df)),
+                      selected = paste(input$selectoutput2))
     
-    updatePickerInput(session, inputId = "columnhead",
-                      choices = c(colnames(df)))
-    
-    updateSliderInput(session, inputId = "columnslide",
-                      min = min(df$input$columnhead, na.rm = TRUE),
-                      max = max(df$input$columnhead, na.rm = TRUE),
-                      value = c(
-                        quantile(df$input$columnhead, probs = 0.25, na.rm = TRUE),
-                        quantile(df$input$columnhead, probs = 0.75, na.rm = TRUE)))
-    updatePickerInput(session, inputId = "selectoutput",
-                      choices = c(colnames(df)))
-  })
+    reactiveItem$data <- df
+    })
   
   output$datatable <- renderTable({
-    # input$file1 will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
-      # when reading semicolon separated files,
-      # having a comma separator causes `read.csv` to error
-      tryCatch(
-        {
-          df <- read.csv(input$uploadedfile$datapath,
-                         header = input$dataheader,
-                         sep = input$datasep,
-                         quote = input$dataquote)
-        },
-        error = function(e) {
-          # return a safeError if a parsing error occurs
-          stop(safeError(e))
-        }
-      ) 
-    
-    if(input$datadisp == "head") {
-      return(head(df))
-    }
-    else {
-      return(df)
-    }
-    
+    if (is.null(input$uploadedfile)){
+      return(
+        reactiveItem$displayTable <- tabException("You are lousy!")
+      )}
+    reactiveItem$displayTable
   })
   
   output$onewayplot <- renderPlot({
-    # input$file1 will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    req(input$uploadedfile)
-      # when reading semicolon separated files,
-      # having a comma separator causes `read.csv` to error
-      tryCatch(
-        {
-          df <- read.csv(input$uploadedfile$datapath,
-                         header = input$dataheader,
-                         sep = input$datasep,
-                         quote = input$dataquote)
-        },
-        error = function(e) {
-          # return a safeError if a parsing error occurs
-          stop(safeError(e))
-        }
-      ) 
-    
-    nooutput <- df %>% select(-starts_with("output"))
-    
-    minwhere <- sapply(nooutput, which.min)
-    maxwhere <- sapply(nooutput, which.max)
-    
-    frameddata <- data.frame(names = colnames(nooutput),
-                             min = c(df$output[minwhere]),
-                             max = c(df$output[maxwhere]))
-    melteddata <- melt(frameddata, id.vars = "names",
-                       variable.name = "val",
-                       value.name = "output") %>%
-      arrange(names)
-    
-    class(melteddata) <- c("tornado", class(melteddata))
-    attr(melteddata, "output_name") <- "output"
-    
-    baseline_output <- median(df$output, na.rm = TRUE)
-    ggplot_tornado(melteddata, baseline_output)
-  })
-  
-  output$datasummary <- renderPrint({
-    
-    # input$file1 will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-    
-    req(input$uploadedfile)
-      # when reading semicolon separated files,
-      # having a comma separator causes `read.csv` to error
-      tryCatch(
-        {
-          df <- read.csv(input$uploadedfile$datapath,
-                         header = input$dataheader,
-                         sep = input$datasep,
-                         quote = input$dataquote)
-        },
-        error = function(e) {
-          # return a safeError if a parsing error occurs
-          stop(safeError(e))
-        }
-      ) 
-    summary(df)
+    reactiveItem$displayTornado
   })
 }
 

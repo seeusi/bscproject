@@ -24,7 +24,7 @@ library(gridExtra)
 #' tab_exception("no data for current filter selection")
 #' tab_exception("This doesn't work!")
 tabException <-function(
-    ...){
+  ...){
   
   # This converts plain text into "character" class
   txt = paste(...)
@@ -142,9 +142,13 @@ ui <- fluidPage(
       # Output: Tabset with data display, plots and data summary ----
       tabsetPanel(type = "tabs",
                   
-                  # This tab will display the data as a table
+                  # This tab will display the uploaded data as a table
                   tabPanel(title = "Data",
-                           tableOutput("datatable")),
+                           tableOutput("datatable"),
+                           
+                           # Button to download head of data table used as PDF
+                           downloadButton(outputId = "downloadDataTable",
+                                          label = "Download as PDF")),
                   
                   # This tab will display one-way uncertainty anaylysis
                   # as a plot, depending on user input of the output
@@ -152,11 +156,15 @@ ui <- fluidPage(
                            
                            # Input: Select output for analysis ----
                            selectInput(inputId = "selectoutput1",
-                                        label = "Select outcome to be analysed",
-                                        choices = c(),
-                                        selected = NULL,
-                                        multiple = FALSE),
-                           plotOutput(outputId = "onewayplot")),
+                                       label = "Select outcome to be analysed",
+                                       choices = c(),
+                                       selected = NULL,
+                                       multiple = FALSE),
+                           plotOutput(outputId = "onewayplot"),
+                           
+                           # Button to download plot produced as PDF
+                           downloadButton(outputId = "downloadTornado",
+                                          label = "Download as PDF")),
                   
                   # This tab will display two-way uncertainty anaylysis
                   # as a plot, depending on user input of parameters and output
@@ -182,11 +190,20 @@ ui <- fluidPage(
                                        choices = c(),
                                        selected = NULL,
                                        multiple = FALSE),
-                           plotOutput("twowayplot")),
+                           
+                           plotOutput("twowayplot"),
+                           
+                           # Button to download plot produced as PDF
+                           downloadButton(outputId = "downloadContour",
+                                          label = "Download as PDF")),
                   
                   # This tab will display a summary of the data
                   tabPanel(title = "Summary",
-                           verbatimTextOutput(outputId = "datasummary"))
+                           verbatimTextOutput(outputId = "datasummary"),
+                           
+                           # Button to download summary of the data as PDF
+                           downloadButton(outputId = "downloadSummary",
+                                          label = "Download as PDF"))
       )
     )
   )
@@ -202,6 +219,18 @@ server <- function(input, output, session){
   #' This has been set as NULL initially and will take on the data
   #' that the user has uploaded.
   uploaded <- reactiveValues(data = NULL)
+  
+  #' Reactive expression to generate the requested outputs ----
+  #' This is called whenever the conditions change. The outputs to be
+  #' displayed are then assigned to the values below. Values retrieved
+  #' from this expression will then be displayed on the user interface.
+  #' These have been set as NULL initially and will take on the table,
+  #' plots and summary, according to the user input.
+  reactiveDisplay <- reactiveValues(
+    table = NULL,
+    tornado = NULL,
+    contour = NULL,
+    summary = NULL)
   
   #' This responds to "event-like" reactive inputs
   #' input$uploadedfile is NULL initially
@@ -247,33 +276,65 @@ server <- function(input, output, session){
     #' value that had been set as NULL above
     uploaded$data <- df
   })
-
+  
   #' Generate an HTML table view of the data
   #' This allows the user to view and check data that has been uploaded
   #' before the analysis plots are created ----
   output$datatable <- renderTable({
     
-    # Handles an error if user has not uploaded any data
-    if (is.null(uploaded$data))
-      return(tabException("You have not uploaded any data!"))
+    #' Handles an error if user has not uploaded any data, to be assigned
+    #' to the reactive value.
+    if (is.null(uploaded$data)){
+      return(
+        reactiveDisplay$table <- tabException(
+          "You have not uploaded any data!")
+        )
+    }
     
     # Assigns uploaded data as a reactive value to a variable
     df <- uploaded$data
     
     #' Does not allow the user the use the analysis tool if data has less
     #' than 2 columns. For at least one-way analysis, 2 columns of data
-    #' is necessary. Error message is raised.
-    if(isTRUE(ncol(df) < 2 ))
-      return(tabException("Your data must have at least 2 columns."))
+    #' is necessary. Error message is raised to the reactive value.
+    if(isTRUE(ncol(df) < 2 )){
+      return(
+        reactiveDisplay$table <- tabException(
+          "Your data must have at least 2 columns.")
+        )
+    }
     
-    # Checks user input for table of data to be displayed
+    #' Checks user input for table of data to be displayed, and assigns
+    #' table to be displayed to reactive value accordingly.
     if (input$datadisp == "head") {
-      return(head(df))
+      return(reactiveDisplay$table <- head(df))
     }
     else {
-      return(df)
+      return(reactiveDisplay$table <- df)
     }
+    
+    # Reactive value is called to be displayed as a table.
+    reactiveDisplay$table
   })
+  
+  # Generate a PDF file of the data used that the user can download ----
+  output$downloadDataTable <- downloadHandler(
+    
+    # Assign a filename
+    filename = function() {
+      paste("dataDisplayed", "pdf", sep = '.')
+    },
+    
+    # Content to be included in the file
+    content = function(file) {
+      
+      # Assign the table displayed from the reactive value to a variable
+      saveTable <- reactiveDisplay$table
+      
+      pdf(file) # Open the device
+      grid.table(saveTable) # Use grid.table() to print table to a PDF file
+      dev.off() # Close the device
+    })
   
   #' Generate plots of the data ----
   #' Also uses the inputs to build the plot label. Note that the
@@ -285,15 +346,25 @@ server <- function(input, output, session){
   output$onewayplot <- renderPlot({
     
     #' Handles error if user has not uploaded any data and ignores error
-    #' message from the data table tab
-    if (is.null(uploaded$data))
-      return(plotException("You have not uploaded any data!"))
+    #' message from the data table tab, to be assigned to the reactive value.
+    if (is.null(uploaded$data)){
+      return(
+        reactiveDisplay$tornado <- plotException(
+          "You have not uploaded any data!")
+        )
+    }
     
+    # Assigns uploaded data as a reactive value to a variable
     df <- uploaded$data
     
-    # Handles error if user has not chosen an output to be analysed
-    if (input$selectoutput1 == "")
-      return(plotException("You have not chosen an output for analysis"))
+    #' Handles error if user has not chosen an output to be analysed.
+    #' This is assigned to the reactive value.
+    if (input$selectoutput1 == ""){
+      return(
+        reactiveDisplay$tornado <- plotException(
+          "You have not chosen an output for analysis")
+        )
+    }
     
     #' Retrieves user input for output to be analysed, as character class,
     #' and assigns that to a variable
@@ -332,38 +403,74 @@ server <- function(input, output, session){
     attr(meltedData, "output_name") <- "output"
     
     #' Set baseline value of the output variable, median, and plot
-    #' tornado using ggplot_tornado, from plotCostEffectiveness package
+    #' tornado using ggplot_tornado, from plotCostEffectiveness package.
+    #' Plot is assigned to the reactive value.
     baseline_output <- median(onlyOutput$output, na.rm = TRUE)
-    ggplot_tornado(meltedData, baseline_output)
+    reactiveDisplay$tornado <- ggplot_tornado(meltedData, baseline_output)
+    
+    # Reactive value is called to be displayed as a plot.
+    reactiveDisplay$tornado
   })
+  
+  # Generate a PDF file of the tornado plot that the user can download ----
+  output$downloadTornado <- downloadHandler(
+    
+    # Assign a file name
+    filename = function() {
+      paste("oneWayAnalysis", "pdf", sep = '.')
+    },
+    
+    # Content to be included in the file
+    content = function(file) {
+      
+      # Assign the plot displayed from the reactive value to a variable
+      saveTornado <- reactiveDisplay$tornado
+      
+      pdf(file) # Open the device
+      print(saveTornado) #Use print() to display ggplot on PDF file
+      dev.off() # Close the device
+    })
   
   # Generate two-way uncertainty analysis plot of the data ----
   output$twowayplot <- renderPlot({
     
     #' Handles error if user has not uploaded any data and ignores error
-    #' message from the data table and one-way tab
-    if (is.null(uploaded$data)) 
-      return(plotException("You have not uploaded any data!"))
+    #' message from the data table and one-way tab. This is assigned to a
+    #' reactive value
+    if (is.null(uploaded$data)){
+      return(
+        reactiveDisplay$contour <- plotException(
+          "You have not uploaded any data!")
+      )
+    }
     
+    # Assigns uploaded data as a reactive value to a variable
     df <- uploaded$data
     
     #' Handles error if user has not selected 2 parameters and an output
-    #' for 2-way uncertainty analysis
+    #' for 2-way uncertainty analysis. This is assigned to a reactive value.
     if ((input$selectparam1 == "") |
         (input$selectparam2 == "") |
-        (input$selectoutput2 == ""))
-      return(plotException("You have to choose both parameters and the
-                            the output for analysis."))
+        (input$selectoutput2 == "")){
+      return(
+        reactiveDisplay$contour <- plotException(
+          "You have to choose both parameters and the output for analysis.")
+      )
+    }
     
     #' Handles error if user has not selected different column headers
     #' for the 2 parameters and the output. All 3 selections must be
-    #' different columns.
+    #' different columns. This is assigned to a reactive value.
     #' Cannot have 2-way analysis if both parameters are the same.
     #' Cannot analyse a data set as both a parameter and an output.
     if ((input$selectparam1 == input$selectparam2) |
         (input$selectparam1 == input$selectoutput2) |
-        (input$selectparam2 == input$selectoutput2))
-      return(plotException("Cannot select same column more than once."))
+        (input$selectparam2 == input$selectoutput2)){
+      return(
+        reactiveDisplay$contour <- plotException(
+          "Cannot select same column more than once.")
+        )
+    }
     
     # Retrieve user inputs and assign to variables as characters.
     param1 <- as.character(input$selectparam1)
@@ -389,9 +496,13 @@ server <- function(input, output, session){
     #' will be the axes, output to be analysed as the colour fill.
     #' na.rm = TRUE included to handle any NULL values in the data.
     #' Plot has title and axes labelled according to user inputs of
-    #' data selected as parameters and output in analysis.
-    ggplot(plotData, aes(parameter1, parameter2), na.rm = TRUE) +
+    #' data selected as parameters and output in analysis. Themes, display
+    #' and background are also chosen below.
+    reactiveDisplay$contour <- ggplot(plotData,
+                                      aes(parameter1, parameter2),
+                                      na.rm = TRUE) +
       geom_point(aes(colour = output), na.rm = TRUE) +
+      
       # continuous colours for the gradient
       scale_colour_gradient2(low = "blue", mid = "white",
                              high = "red", midpoint = midPointValue) +
@@ -401,21 +512,68 @@ server <- function(input, output, session){
       xlab(input$selectparam1) +
       ylab(input$selectparam2) +
       theme(panel.border = element_blank())
+    
+    #Reactive value is called to be displayed as a plot
+    reactiveDisplay$contour
   })
+  
+  # Generate a PDF file of the contour plot that the user can download ----
+  output$downloadContour <- downloadHandler(
+    
+    # Assign a file name
+    filename = function() {
+      paste("twoWayAnalysis", "pdf", sep = '.')
+    },
+    
+    # Content to be included in the file
+    content = function(file) {
+      
+      # Assign the plot displayed from the reactive value to a variable
+      saveContour <- reactiveDisplay$contour
+      
+      pdf(file) # Open the device
+      print(saveContour) #Use print() to display ggplot on PDF file
+      dev.off() # Close the device
+    })
   
   # Generate a summary of the data ----
   output$datasummary <- renderPrint({
     
     #' Handles error if user has not uploaded any data and ignores error
     #' message from the previous three tabs
-    if (is.null(uploaded$data)) 
-      return("You have not uploaded any data!")
+    if (is.null(uploaded$data)){
+      return(
+        reactiveDisplay$summary <- print("You have not uploaded any data!")
+      )
+    }
     
+    # Assigns uploaded data as a reactive value to a variable
     df <- uploaded$data
     
     # Display summary of data user has uploaded
-    summary(df)
+    reactiveDisplay$summary <- summary(df)
+    
+    reactiveDisplay$summary
   })
+  
+  # Generate a PDF file of the data summary that the user can download ----
+  output$downloadSummary <- downloadHandler(
+    
+    # Assign a filename
+    filename = function() {
+      paste("summary", "pdf", sep = '.')
+    },
+    
+    # Content to be included in the file
+    content = function(file) {
+      
+      # Assign the plot displayed from the reactive value to a variable
+      saveSummary <- reactiveDisplay$summary
+      
+      pdf(file) # Open the device
+      grid.table(saveSummary) # Use grid.table() to print summary to a PDF file
+      dev.off() # Close the device
+    })
 }
 
 # Create Shiny app ----
