@@ -11,6 +11,8 @@ These instructions will get you a copy of code running as an application on your
 
 ### Prerequisites
 The application requires R version 3.5.2 (2018-12-20) to run.
+The application can be deployed to an internet server. Find out more about building applications with Shiny here:http://shiny.rstudio.com/
+This documentation will demonstrate how this application can be run from RStudio version 1.1.463 (2016).
 
 The attached base packages are:
 - stats
@@ -29,11 +31,14 @@ The required packaged to install and their versions are:
 - ggplot2 version 3.1.1
 - gridExtra version 2.3
 
-Use \code{sessionInfo()} in the console to check versions, and attached and loaded packages in R.
+Use \code{sessionInfo()} in the console in RStudio, to check versions, and attached and loaded packages in R.
 
 ### How to run the application
-1. Open the file sensitivityAnalysis.R in R Studio
+1. Open the file sensitivityAnalysis.R in R Studio.
 2. Click the "Run App" button on the top right of the code window.
+
+To display the code and the application side-by-side, use
+\code{runApp(appDir = getwd(sensitivityAnalysis.R), display.mode = "showcase")} in the console in RStudio.
 
 ## Required User Inputs
 This application allows the user to upload a .csv file with data loaded. An empty .csv file or non .csv file is read similarly to a corrupted or damaged file; the application will close to protect the server code.
