@@ -281,12 +281,10 @@ server <- function(input, output, session){
   #' before the analysis plots are created ----
   output$datatable <- renderTable({
     
-    #' Handles an error if user has not uploaded any data, to be assigned
-    #' to the reactive value.
+    # Handles an error if user has not uploaded any data.
     if (is.null(uploaded$data)){
       return(
-        reactiveDisplay$table <- tabException(
-          "You have not uploaded any data!")
+        display <- tabException("You have not uploaded any data!")
         )
     }
     
@@ -295,24 +293,26 @@ server <- function(input, output, session){
     
     #' Does not allow the user the use the analysis tool if data has less
     #' than 2 columns. For at least one-way analysis, 2 columns of data
-    #' is necessary. Error message is raised to the reactive value.
+    #' is necessary. Error message is raised.
     if(isTRUE(ncol(df) < 2 )){
       return(
-        reactiveDisplay$table <- tabException(
-          "Your data must have at least 2 columns.")
+        display <- tabException("Your data must have at least 2 columns.")
         )
     }
     
     #' Checks user input for table of data to be displayed, and assigns
-    #' table to be displayed to reactive value accordingly.
+    #' table to be displayed accordingly.
     if (input$datadisp == "head") {
-      return(reactiveDisplay$table <- head(df))
+      return(display <- head(df))
     }
     else {
-      return(reactiveDisplay$table <- df)
+      return(display <- df)
     }
     
-    # Reactive value is called to be displayed as a table.
+    # Assign table to be displayed to reactive value to be reused.
+    reactiveDisplay$table <- display
+    
+    # Reactive value is called to be displayed.
     reactiveDisplay$table
   })
   
@@ -344,23 +344,20 @@ server <- function(input, output, session){
   output$onewayplot <- renderPlot({
     
     #' Handles error if user has not uploaded any data and ignores error
-    #' message from the data table tab, to be assigned to the reactive value.
+    #' message from the data table tab.
     if (is.null(uploaded$data)){
       return(
-        reactiveDisplay$tornado <- plotException(
-          "You have not uploaded any data!")
+        display <- plotException("You have not uploaded any data!")
         )
     }
     
     # Assigns uploaded data as a reactive value to a variable
     df <- uploaded$data
     
-    #' Handles error if user has not chosen an output to be analysed.
-    #' This is assigned to the reactive value.
+    # Handles error if user has not chosen an output to be analysed.
     if (input$selectoutput1 == ""){
       return(
-        reactiveDisplay$tornado <- plotException(
-          "You have not chosen an output for analysis")
+        display <- plotException("You have not chosen an output for analysis")
         )
     }
     
@@ -402,9 +399,11 @@ server <- function(input, output, session){
     
     #' Set baseline value of the output variable, median, and plot
     #' tornado using ggplot_tornado, from plotCostEffectiveness package.
-    #' Plot is assigned to the reactive value.
     baseline_output <- median(onlyOutput$output, na.rm = TRUE)
-    reactiveDisplay$tornado <- ggplot_tornado(meltedData, baseline_output)
+    display <- ggplot_tornado(meltedData, baseline_output)
+    
+    # Assign plot to be displayed to reactive value to be reused.
+    reactiveDisplay$tornado <- display
     
     # Reactive value is called to be displayed as a plot.
     reactiveDisplay$tornado
@@ -433,12 +432,10 @@ server <- function(input, output, session){
   output$twowayplot <- renderPlot({
     
     #' Handles error if user has not uploaded any data and ignores error
-    #' message from the data table and one-way tab. This is assigned to a
-    #' reactive value
+    #' message from the data table and one-way tab.
     if (is.null(uploaded$data)){
       return(
-        reactiveDisplay$contour <- plotException(
-          "You have not uploaded any data!")
+        display <- plotException("You have not uploaded any data!")
       )
     }
     
@@ -446,27 +443,26 @@ server <- function(input, output, session){
     df <- uploaded$data
     
     #' Handles error if user has not selected 2 parameters and an output
-    #' for 2-way sensitivity analysis. This is assigned to a reactive value.
+    #' for 2-way sensitivity analysis.
     if ((input$selectparam1 == "") |
         (input$selectparam2 == "") |
         (input$selectoutput2 == "")){
       return(
-        reactiveDisplay$contour <- plotException(
+        display <- plotException(
           "You have to choose both parameters and the output for analysis.")
       )
     }
     
     #' Handles error if user has not selected different column headers
     #' for the 2 parameters and the output. All 3 selections must be
-    #' different columns. This is assigned to a reactive value.
+    #' different columns.
     #' Cannot have 2-way analysis if both parameters are the same.
     #' Cannot analyse a data set as both a parameter and an output.
     if ((input$selectparam1 == input$selectparam2) |
         (input$selectparam1 == input$selectoutput2) |
         (input$selectparam2 == input$selectoutput2)){
       return(
-        reactiveDisplay$contour <- plotException(
-          "Cannot select same column more than once.")
+        display <- plotException("Cannot select same column more than once.")
         )
     }
     
@@ -496,9 +492,7 @@ server <- function(input, output, session){
     #' Plot has title and axes labelled according to user inputs of
     #' data selected as parameters and output in analysis. Themes, display
     #' and background are also chosen below.
-    reactiveDisplay$contour <- ggplot(plotData,
-                                      aes(parameter1, parameter2),
-                                      na.rm = TRUE) +
+    display <- ggplot(plotData,aes(parameter1, parameter2), na.rm = TRUE) +
       geom_point(aes(colour = output), na.rm = TRUE) +
       
       # continuous colours for the gradient
@@ -510,6 +504,9 @@ server <- function(input, output, session){
       xlab(input$selectparam1) +
       ylab(input$selectparam2) +
       theme(panel.border = element_blank())
+    
+    # Assign plot to be displayed to reactive value to be reused.
+    reactiveDisplay$contour <- display
     
     #Reactive value is called to be displayed as a plot
     reactiveDisplay$contour
@@ -541,7 +538,7 @@ server <- function(input, output, session){
     #' message from the previous three tabs
     if (is.null(uploaded$data)){
       return(
-        reactiveDisplay$summary <- print("You have not uploaded any data!")
+        display <- print("You have not uploaded any data!")
       )
     }
     
@@ -549,8 +546,12 @@ server <- function(input, output, session){
     df <- uploaded$data
     
     # Display summary of data user has uploaded
-    reactiveDisplay$summary <- summary(df)
+    display <- summary(df)
     
+    # Assign object displayed to reactive value to be reused.
+    reactiveDisplay$summary <- display
+    
+    #Reactive value is called to be displayed
     reactiveDisplay$summary
   })
   
