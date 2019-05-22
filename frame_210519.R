@@ -19,7 +19,7 @@ library(gridExtra)
 
 #' Table message for exception
 #' Typically call \code{return(tab_exception(...))} where you would have called \code{stop(...)}
-#' @param ... text to display, concatenated with sep
+#' @param ... text to display
 #' @examples
 #' tab_exception("no data for current filter selection")
 #' tab_exception("This doesn't work!")
@@ -78,11 +78,11 @@ plotException <-function(
           theme_void())
 }
 
-# Define the UI, visual design of the page
+# Define the user interface, visual design of the page
 ui <- fluidPage(
   
   # App title ----
-  titlePanel( "Cost-effectiveness uncertainty analysis"),
+  titlePanel( "Sensitivity Analysis for Medical Decision-Making"),
   
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
@@ -149,7 +149,7 @@ ui <- fluidPage(
                            downloadButton(outputId = "downloadDataTable",
                                           label = "Download as PDF")),
                   
-                  # This tab will display one-way uncertainty anaylysis
+                  # This tab will display one-way sensitivity anaylysis
                   # as a plot, depending on user input of the output
                   tabPanel(title = "One-way",
                            
@@ -165,7 +165,7 @@ ui <- fluidPage(
                            downloadButton(outputId = "downloadTornado",
                                           label = "Download as PDF")),
                   
-                  # This tab will display two-way uncertainty anaylysis
+                  # This tab will display two-way sensitivity anaylysis
                   # as a plot, depending on user input of parameters and output
                   tabPanel(title = "Two-way",
                            
@@ -338,10 +338,9 @@ server <- function(input, output, session){
   #' Generate plots of the data ----
   #' Also uses the inputs to build the plot label. Note that the
   #' dependencies on the inputs and the data reactive expression are
-  #' both tracked, and all expressions are called in the sequence
-  #' implied by the dependency graph.
+  #' both tracked, and all expressions are called in the sequence.
   #' 
-  #' Generate one-way uncertainty analysis plot of the data ----
+  #' Generate one-way sensitivity analysis plot of the data ----
   output$onewayplot <- renderPlot({
     
     #' Handles error if user has not uploaded any data and ignores error
@@ -389,7 +388,7 @@ server <- function(input, output, session){
                              max = c(onlyOutput$output[maxWhere]))
     
     #' Data frame is melted into a vertical form that is more friendly to
-    #' ggplot tornado function, to plot the uncertainty analysis.
+    #' ggplot tornado function, to plot the sensitivity analysis.
     #' Data frame is then, sorted by non-output parameters, "names".
     meltedData <- melt(framedData, id.vars = "names",
                        variable.name = "val",
@@ -430,7 +429,7 @@ server <- function(input, output, session){
       dev.off() # Close the device
     })
   
-  # Generate two-way uncertainty analysis plot of the data ----
+  # Generate two-way sensitivity analysis plot of the data ----
   output$twowayplot <- renderPlot({
     
     #' Handles error if user has not uploaded any data and ignores error
@@ -447,7 +446,7 @@ server <- function(input, output, session){
     df <- uploaded$data
     
     #' Handles error if user has not selected 2 parameters and an output
-    #' for 2-way uncertainty analysis. This is assigned to a reactive value.
+    #' for 2-way sensitivity analysis. This is assigned to a reactive value.
     if ((input$selectparam1 == "") |
         (input$selectparam2 == "") |
         (input$selectoutput2 == "")){
@@ -507,7 +506,7 @@ server <- function(input, output, session){
                              high = "red", midpoint = midPointValue) +
       coord_equal() +
       theme_bw() +
-      ggtitle("Two-way uncertainty analysis of", input$selectoutput2) +
+      ggtitle("Two-way sensitivity analysis of", input$selectoutput2) +
       xlab(input$selectparam1) +
       ylab(input$selectparam2) +
       theme(panel.border = element_blank())
