@@ -74,7 +74,7 @@ plotException <-function(
   
   # Text input returned as a plot, which can be displayed by renderPlot
   print(ggplot() +
-          geom_text(ggplot2::aes(x=0,y=0,label=txt),color=color,size=size) +
+          geom_text(aes(x=0,y=0,label=txt),color=color,size=size) +
           theme_void())
 }
 
